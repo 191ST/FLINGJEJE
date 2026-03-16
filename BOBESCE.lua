@@ -1,342 +1,153 @@
--- Xeno Executor ESP Script
--- Fitur: Wallhack, Box ESP, Name ESP, Health ESP
+-- Xeno Executor ESP Simple Version
+-- 100% Work untuk Xeno Executor
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Xeno ESP V2", "DarkTheme")
+loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/Executor/main/ScriptHub.lua"))()
 
--- Variabel ESP
-local ESP = {}
+-- Atau pake script ESP murni tanpa library
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 
--- Tab Utama
-local MainTab = Window:NewTab("ESP Settings")
-local MainSection = MainTab:NewSection("ESP Controls")
+-- Table untuk menyimpan drawing objects
+local ESP = {}
+local ESPEnabled = true
 
--- Status ESP
-local espEnabled = false
-local wallhackEnabled = false
-local boxESP = false
-local nameESP = false
-local healthESP = false
-local distanceESP = false
-local tracerESP = false
-local headDotESP = false
-local skeletonESP = false
-
--- Warna
-local colors = {
-    enemy = Color3.fromRGB(255, 0, 0),
-    team = Color3.fromRGB(0, 255, 0),
-    wallhack = Color3.fromRGB(255, 255, 255)
-}
-
--- Fungsi untuk membuat ESP
-function ESP:Create(player)
+-- Fungsi create ESP
+function CreateESP(player)
     if player == LocalPlayer then return end
     
-    -- Drawing objects
-    local espObjects = {
-        box = Drawing.new("Square"),
-        name = Drawing.new("Text"),
-        health = Drawing.new("Text"),
-        distance = Drawing.new("Text"),
-        tracer = Drawing.new("Line"),
-        head = Drawing.new("Circle"),
-        skeleton = {}
+    ESP[player] = {
+        Box = Drawing.new("Square"),
+        Name = Drawing.new("Text"),
+        Health = Drawing.new("Text"),
+        Distance = Drawing.new("Text"),
+        Tracer = Drawing.new("Line"),
+        Head = Drawing.new("Circle")
     }
     
-    -- Setup drawing properties
-    espObjects.box.Visible = false
-    espObjects.box.Color = colors.enemy
-    espObjects.box.Thickness = 2
-    espObjects.box.Filled = false
+    -- Box settings
+    ESP[player].Box.Thickness = 2
+    ESP[player].Box.Color = Color3.fromRGB(255, 0, 0)
+    ESP[player].Box.Filled = false
+    ESP[player].Box.Visible = true
     
-    espObjects.name.Visible = false
-    espObjects.name.Color = Color3.fromRGB(255, 255, 255)
-    espObjects.name.Center = true
-    espObjects.name.Size = 16
-    espObjects.name.Outline = true
-    espObjects.name.Font = 3
+    -- Name settings
+    ESP[player].Name.Size = 16
+    ESP[player].Name.Center = true
+    ESP[player].Name.Color = Color3.fromRGB(255, 255, 255)
+    ESP[player].Name.Outline = true
+    ESP[player].Name.Visible = true
     
-    espObjects.health.Visible = false
-    espObjects.health.Color = Color3.fromRGB(0, 255, 0)
-    espObjects.health.Size = 14
-    espObjects.health.Outline = true
+    -- Health settings
+    ESP[player].Health.Size = 14
+    ESP[player].Health.Color = Color3.fromRGB(0, 255, 0)
+    ESP[player].Health.Outline = true
+    ESP[player].Health.Visible = true
     
-    espObjects.distance.Visible = false
-    espObjects.distance.Color = Color3.fromRGB(255, 255, 0)
-    espObjects.distance.Size = 12
-    espObjects.distance.Outline = true
+    -- Distance settings
+    ESP[player].Distance.Size = 12
+    ESP[player].Distance.Color = Color3.fromRGB(255, 255, 0)
+    ESP[player].Distance.Outline = true
+    ESP[player].Distance.Visible = true
     
-    espObjects.tracer.Visible = false
-    espObjects.tracer.Color = colors.enemy
-    espObjects.tracer.Thickness = 1
+    -- Tracer settings
+    ESP[player].Tracer.Thickness = 1
+    ESP[player].Tracer.Color = Color3.fromRGB(255, 0, 0)
+    ESP[player].Tracer.Visible = true
     
-    espObjects.head.Visible = false
-    espObjects.head.Color = Color3.fromRGB(255, 0, 0)
-    espObjects.head.Radius = 3
-    espObjects.head.Filled = true
-    espObjects.head.NumSides = 30
-    
-    -- Store in player
-    player:SetAttribute("ESPDrawing", espObjects)
+    -- Head dot settings
+    ESP[player].Head.Radius = 3
+    ESP[player].Head.Color = Color3.fromRGB(255, 0, 0)
+    ESP[player].Head.Filled = true
+    ESP[player].Head.NumSides = 30
+    ESP[player].Head.Visible = true
 end
 
--- Fungsi update ESP
-function ESP:Update()
-    if not espEnabled then return end
+-- Loop update ESP
+RunService.RenderStepped:Connect(function()
+    if not ESPEnabled then return end
     
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
             local character = player.Character
-            local humanoid = character:FindFirstChild("Humanoid")
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character.Humanoid
+            local rootPart = character.HumanoidRootPart
             local head = character:FindFirstChild("Head")
             
-            if humanoid and rootPart and head and humanoid.Health > 0 then
-                -- Get screen position
+            if humanoid.Health > 0 and head then
                 local rootPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
                 local headPos, _ = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
                 
                 if onScreen then
-                    -- Hitung ukuran box
+                    if not ESP[player] then
+                        CreateESP(player)
+                    end
+                    
+                    local esp = ESP[player]
+                    
+                    -- Hitung box size
                     local boxHeight = math.abs(headPos.Y - rootPos.Y) * 1.5
                     local boxWidth = boxHeight * 0.6
                     
-                    -- Dapatkan ESP objects
-                    local espObjects = player:GetAttribute("ESPDrawing")
+                    -- Update Box
+                    esp.Box.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2)
+                    esp.Box.Size = Vector2.new(boxWidth, boxHeight)
                     
-                    if espObjects then
-                        -- Wallhack / Through walls
-                        local isVisible = true
-                        if wallhackEnabled then
-                            -- Wallhack membuat player terlihat tembus dinding
-                            espObjects.box.Color = colors.wallhack
-                        else
-                            -- Cek visibility
-                            local ray = Ray.new(Camera.CFrame.Position, (rootPart.Position - Camera.CFrame.Position).Unit * 1000)
-                            local hit, _ = workspace:FindPartOnRay(ray, LocalPlayer.Character)
-                            isVisible = (hit and hit:IsDescendantOf(player.Character)) or false
-                            espObjects.box.Color = isVisible and colors.enemy or colors.team
-                        end
-                        
-                        -- Box ESP
-                        if boxESP then
-                            espObjects.box.Visible = true
-                            espObjects.box.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2)
-                            espObjects.box.Size = Vector2.new(boxWidth, boxHeight)
-                        else
-                            espObjects.box.Visible = false
-                        end
-                        
-                        -- Name ESP
-                        if nameESP then
-                            espObjects.name.Visible = true
-                            espObjects.name.Position = Vector2.new(rootPos.X, rootPos.Y - boxHeight/2 - 20)
-                            espObjects.name.Text = player.Name
-                        else
-                            espObjects.name.Visible = false
-                        end
-                        
-                        -- Health ESP
-                        if healthESP then
-                            espObjects.health.Visible = true
-                            espObjects.health.Position = Vector2.new(rootPos.X + boxWidth/2 + 5, rootPos.Y - boxHeight/2)
-                            espObjects.health.Text = string.format("❤️ %d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
-                            
-                            -- Warna berdasarkan health
-                            local healthPercent = humanoid.Health / humanoid.MaxHealth
-                            if healthPercent > 0.6 then
-                                espObjects.health.Color = Color3.fromRGB(0, 255, 0)
-                            elseif healthPercent > 0.3 then
-                                espObjects.health.Color = Color3.fromRGB(255, 255, 0)
-                            else
-                                espObjects.health.Color = Color3.fromRGB(255, 0, 0)
-                            end
-                        else
-                            espObjects.health.Visible = false
-                        end
-                        
-                        -- Distance ESP
-                        if distanceESP then
-                            espObjects.distance.Visible = true
-                            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
-                            espObjects.distance.Position = Vector2.new(rootPos.X, rootPos.Y + boxHeight/2 + 15)
-                            espObjects.distance.Text = string.format("📏 %dm", math.floor(dist))
-                        else
-                            espObjects.distance.Visible = false
-                        end
-                        
-                        -- Tracer ESP
-                        if tracerESP then
-                            espObjects.tracer.Visible = true
-                            espObjects.tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                            espObjects.tracer.To = Vector2.new(rootPos.X, rootPos.Y)
-                        else
-                            espObjects.tracer.Visible = false
-                        end
-                        
-                        -- Head Dot ESP
-                        if headDotESP then
-                            espObjects.head.Visible = true
-                            espObjects.head.Position = Vector2.new(headPos.X, headPos.Y)
-                        else
-                            espObjects.head.Visible = false
-                        end
-                        
-                        -- Skeleton ESP
-                        if skeletonESP and character:FindFirstChild("UpperTorso") then
-                            -- Implementasi skeleton sederhana
-                            local joints = {
-                                {"Head", "UpperTorso"},
-                                {"UpperTorso", "LowerTorso"},
-                                {"UpperTorso", "LeftUpperArm"},
-                                {"LeftUpperArm", "LeftLowerArm"},
-                                {"LeftLowerArm", "LeftHand"},
-                                {"UpperTorso", "RightUpperArm"},
-                                {"RightUpperArm", "RightLowerArm"},
-                                {"RightLowerArm", "RightHand"},
-                                {"LowerTorso", "LeftUpperLeg"},
-                                {"LeftUpperLeg", "LeftLowerLeg"},
-                                {"LeftLowerLeg", "LeftFoot"},
-                                {"LowerTorso", "RightUpperLeg"},
-                                {"RightUpperLeg", "RightLowerLeg"},
-                                {"RightLowerLeg", "RightFoot"}
-                            }
-                            
-                            for i, joint in ipairs(joints) do
-                                local part1 = character:FindFirstChild(joint[1])
-                                local part2 = character:FindFirstChild(joint[2])
-                                
-                                if part1 and part2 then
-                                    local pos1, _ = Camera:WorldToViewportPoint(part1.Position)
-                                    local pos2, _ = Camera:WorldToViewportPoint(part2.Position)
-                                    
-                                    if not espObjects.skeleton[i] then
-                                        espObjects.skeleton[i] = Drawing.new("Line")
-                                        espObjects.skeleton[i].Thickness = 1
-                                        espObjects.skeleton[i].Color = Color3.fromRGB(255, 255, 255)
-                                    end
-                                    
-                                    espObjects.skeleton[i].Visible = true
-                                    espObjects.skeleton[i].From = Vector2.new(pos1.X, pos1.Y)
-                                    espObjects.skeleton[i].To = Vector2.new(pos2.X, pos2.Y)
-                                elseif espObjects.skeleton[i] then
-                                    espObjects.skeleton[i].Visible = false
-                                end
-                            end
-                        else
-                            for i = 1, 14 do
-                                if espObjects.skeleton[i] then
-                                    espObjects.skeleton[i].Visible = false
-                                end
-                            end
-                        end
-                    end
+                    -- Update Name
+                    esp.Name.Position = Vector2.new(rootPos.X, rootPos.Y - boxHeight/2 - 20)
+                    esp.Name.Text = player.Name
+                    
+                    -- Update Health
+                    esp.Health.Position = Vector2.new(rootPos.X + boxWidth/2 + 5, rootPos.Y - boxHeight/2)
+                    esp.Health.Text = string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+                    
+                    -- Update Distance
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+                    esp.Distance.Position = Vector2.new(rootPos.X, rootPos.Y + boxHeight/2 + 15)
+                    esp.Distance.Text = string.format("%dm", math.floor(dist))
+                    
+                    -- Update Tracer
+                    esp.Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                    esp.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+                    
+                    -- Update Head dot
+                    esp.Head.Position = Vector2.new(headPos.X, headPos.Y)
                 else
-                    -- Hide jika off screen
-                    local espObjects = player:GetAttribute("ESPDrawing")
-                    if espObjects then
-                        espObjects.box.Visible = false
-                        espObjects.name.Visible = false
-                        espObjects.health.Visible = false
-                        espObjects.distance.Visible = false
-                        espObjects.tracer.Visible = false
-                        espObjects.head.Visible = false
-                        for i = 1, 14 do
-                            if espObjects.skeleton[i] then
-                                espObjects.skeleton[i].Visible = false
-                            end
-                        end
+                    if ESP[player] then
+                        ESP[player].Box.Visible = false
+                        ESP[player].Name.Visible = false
+                        ESP[player].Health.Visible = false
+                        ESP[player].Distance.Visible = false
+                        ESP[player].Tracer.Visible = false
+                        ESP[player].Head.Visible = false
                     end
                 end
             end
         end
     end
-end
-
--- Buat ESP untuk player yang sudah ada
-for _, player in ipairs(Players:GetPlayers()) do
-    ESP:Create(player)
-end
-
--- Buat ESP untuk player baru
-Players.PlayerAdded:Connect(function(player)
-    ESP:Create(player)
 end)
 
--- Hapus ESP ketika player leave
+-- Buat ESP untuk player baru
+Players.PlayerAdded:Connect(CreateESP)
+
+-- Hapus ESP saat player leave
 Players.PlayerRemoving:Connect(function(player)
-    local espObjects = player:GetAttribute("ESPDrawing")
-    if espObjects then
-        espObjects.box:Remove()
-        espObjects.name:Remove()
-        espObjects.health:Remove()
-        espObjects.distance:Remove()
-        espObjects.tracer:Remove()
-        espObjects.head:Remove()
-        for _, line in ipairs(espObjects.skeleton) do
-            line:Remove()
-        end
+    if ESP[player] then
+        ESP[player].Box:Remove()
+        ESP[player].Name:Remove()
+        ESP[player].Health:Remove()
+        ESP[player].Distance:Remove()
+        ESP[player].Tracer:Remove()
+        ESP[player].Head:Remove()
+        ESP[player] = nil
     end
 end)
 
--- Update loop
-RunService.RenderStepped:Connect(function()
-    ESP:Update()
-end)
+-- Buat ESP untuk player yang sudah ada
+for _, player in ipairs(Players:GetPlayers()) do
+    CreateESP(player)
+end
 
--- UI Toggles
-MainSection:NewToggle("Enable ESP", "Turn on/off ESP", function(state)
-    espEnabled = state
-end)
-
-MainSection:NewToggle("Wallhack (Tembus Dinding)", "See players through walls", function(state)
-    wallhackEnabled = state
-end)
-
-MainSection:NewToggle("Box ESP", "Show boxes around players", function(state)
-    boxESP = state
-end)
-
-MainSection:NewToggle("Name ESP", "Show player names", function(state)
-    nameESP = state
-end)
-
-MainSection:NewToggle("Health ESP", "Show health bars/numbers", function(state)
-    healthESP = state
-end)
-
-MainSection:NewToggle("Distance ESP", "Show distance to players", function(state)
-    distanceESP = state
-end)
-
-MainSection:NewToggle("Tracer ESP", "Draw lines to players", function(state)
-    tracerESP = state
-end)
-
-MainSection:NewToggle("Head Dot ESP", "Show dots on heads", function(state)
-    headDotESP = state
-end)
-
-MainSection:NewToggle("Skeleton ESP", "Show player skeletons", function(state)
-    skeletonESP = state
-end)
-
--- Color settings
-local ColorTab = Window:NewTab("Colors")
-local ColorSection = ColorTab:NewSection("ESP Colors")
-
-ColorSection:NewColorPicker("Enemy Color", "Color for enemies", Color3.fromRGB(255, 0, 0), function(color)
-    colors.enemy = color
-end)
-
-ColorSection:NewColorPicker("Team Color", "Color for teammates", Color3.fromRGB(0, 255, 0), function(color)
-    colors.team = color
-end)
-
--- Notification
-Library:Notify("Xeno ESP Loaded!", "Script by System Dark", 5)
+-- Notifikasi
+print("Xeno ESP Loaded! - System Dark")
